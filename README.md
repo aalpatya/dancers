@@ -372,6 +372,9 @@ This is the same `Variable`/`Factor`/`FactorGraph` code (`inc/gbp/`) that the Pl
 </details>
 
 ### `gbp-1d-line-fitting`
+<p align="center">
+  <img src="assets/demo_gifs/1d-line-fitting.gif" width="50%" alt="Distributed shape formation"/>
+</p>
 
 An interactive (raylib) take on the classic GBP **1D line fitting** demo from [gaussianbp.github.io](https://gaussianbp.github.io). A chain of height variables is tied by smoothness factors; click on the canvas to set **data factors** (or load the **Outlier / Step / Random** presets), then **Run Synchronous GBP** and watch the chain rise from the bottom and fit the data. Each node draws its belief mean and a ±1σ covariance bar. Switch the **Robust Kernel** (None / Huber / DCS) to see outliers down-weighted and step edges preserved. See [`src/examples/gbp-1d-line-fitting.cpp`](src/examples/gbp-1d-line-fitting.cpp).
 
