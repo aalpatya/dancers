@@ -1,0 +1,50 @@
+# ================  SCENARIO  ================
+SIMULATION_NAME: "bestOfN_seedrobots"
+LOG_RESULTS: false        # if true, Simulator::log_results() runs (convergence metrics + result logging)
+SCENARIO: trigrid         # random | circle | junction | junction_twoway | trigrid | file (with SCENARIO_FILE)
+SCENARIO_FILE: ""         # path to json file containing waypoints and/or consensus decisions (if SCENARIO=file)
+NUM_ROBOTS: 200           # (@)
+COMMUNICATION_RADIUS: 10  # meters, robot comms radius
+RNG_SEED: 1               # Random Number Generator seed (@)
+COMMS_FAILURE_RATE: 0.0   # proportion [0,1] of robots that fail to communicate
+
+# ================  WORLD / ROBOT  ================
+WORLD_SZ: 100             # world size (square) in meters (@)
+TIMESTEP: 0.1             # seconds per simulation timestep
+MAX_TIME: -1              # Max timesteps for simulation (-1 = no limit)
+SIM_MODE: 0               # 0: Paused, 1: Running
+ROBOT_MODEL: sphere       # bus | sphere | robot
+
+# ================  DISPLAY  ================
+DISPLAY: 1                # 0: no graphical display, 1: graphical display
+SCREEN_SZ: 800            # Size of display window (pixels)
+DRAW_INTERROBOT: 1        # Draw inter-robot factors (communication links)
+DRAW_PATH: 0              # Draw robot planned paths
+DRAW_TRAJ: 0              # Draw robot executed trajectories
+MAX_TRAJ_LEN: 100         # Maximum length of executed trajectory to draw (-1 = no limit)
+DRAW_WAYPOINTS: 0         # Draw robot waypoints
+
+# ================  PROBLEM-SPECIFIC SETUP  ================
+# Factorgraph_layers in each robot's GBP stack.
+# Each layer in the factor graph represents a sub-problem in the overall multi-robot problem.
+FACTORGRAPH_LAYERS:
+  # CONSENSUS layer: 'continuous' (space R^N|SE2|SO2) or 'discrete' (num_decisions), and factor sigmas.
+  - name: Consensus
+    type: consensus
+    params:
+      TYPE: discrete
+      NUM_DECISIONS: 10                 # (@)
+      SEED_ROBOTS_PROPORTION: 0.2       # proportion [0,1] of robots fixed as "seed/informed" robots (@)
+      SEED_DECISION: 2           # the decision seed robots hold fixed (discrete consensus) (@)
+      # [ADVANCED]:      GBP Factor strengths
+      SIGMA_FACTOR_SMOOTHNESS: 0.05     # smoothness factor
+      SIGMA_VAR_PRIOR: 1.0              # prior factor
+      SIGMA_VAR_SLIDING_WINDOW: 0.1     # temporal consistency factor (sliding window)
+      NUM_VAR_SLIDING_WINDOW: 1         # Number of timesteps to keep in sliding window (sliding window size)
+      SLIDING_WINDOW_TIMESTEP_FREQ: 1   # How often to add a new timestep to the sliding window (in timesteps)
+
+# ================  ADVANCED — GBP solver (defaults in Globals.cpp)  ================
+# Number of External GBP iterations per timestep.
+# Number of Internal GBP iterations is set in Globals.cpp (default 2).
+# Total GBP iterations per timestep = NUM_ITERS * NUM_INTERNAL_ITERS.
+NUM_ITERS: 2

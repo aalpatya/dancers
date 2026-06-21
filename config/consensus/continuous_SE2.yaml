@@ -1,0 +1,73 @@
+# ================  SCENARIO  ================
+SIMULATION_NAME: "continuous_SE2"
+LOG_RESULTS: false        # if true, Simulator::log_results() runs (convergence metrics + result logging)
+SCENARIO: random          # random | circle | junction | junction_twoway | trigrid | file (with SCENARIO_FILE)
+SCENARIO_FILE: ""         # path to json file containing waypoints and/or consensus decisions (if SCENARIO=file)
+NUM_ROBOTS: 20            # (@)
+COMMUNICATION_RADIUS: 20  # meters, robot comms radius
+RNG_SEED: 1               # Random Number Generator seed (@)
+COMMS_FAILURE_RATE: 0.0   # proportion [0,1] of robots that fail to communicate
+
+# ================  WORLD / ROBOT  ================
+WORLD_SZ: 100             # world size (square) in meters (@)
+TIMESTEP: 0.1             # seconds per simulation timestep
+MAX_TIME: -1              # Max timesteps for simulation (-1 = no limit)
+SIM_MODE: 0               # 0: Paused, 1: Running
+ROBOT_MODEL: bus          # bus | sphere | robot (@)
+
+# ================  DISPLAY  ================
+DISPLAY: 1                # 0: no graphical display, 1: graphical display
+SCREEN_SZ: 800            # Size of display window (pixels)
+DRAW_INTERROBOT: 1        # Draw inter-robot factors (communication links)
+DRAW_PATH: 1              # Draw robot planned paths
+DRAW_TRAJ: 1              # Draw robot executed trajectories
+MAX_TRAJ_LEN: 100         # Maximum length of executed trajectory to draw (-1 = no limit)
+DRAW_WAYPOINTS: 0         # Draw robot waypoints
+
+# ================  PROBLEM-SPECIFIC SETUP  ================
+# Parameters for Shape Formation. If an image is given, it is binarised and converted into N points in C++ (ShapeFormation::generateFormationPoints).
+# The N points are then used as waypoints for the robots to move towards. If no image is given, the shape formation is ignored.
+SHAPE_FORMATION:
+  FORMATION_DISPLAY_TYPE: full              # none | points (draw shape formation points) | full (draw shape formation overlay)
+  FORMATION_IMG_FILE: imgs/shapes/A.png     # path to image file for shape formation (@)
+  ROBOTS_MOVE_TOWARDS_SHAPE: false           # true: robots move towards the shape; false: towards their waypoints
+
+# Factorgraph_layers in each robot's GBP stack.
+# Each layer in the factor graph represents a sub-problem in the overall multi-robot problem.
+FACTORGRAPH_LAYERS:
+  # PLANNING layer: path-planning settings and factor sigmas.
+  - name: Planning
+    type: planning
+    params:
+      T_HORIZON: 1.5                  # [s] Time horizon for planning (how far into the future to plan)
+      ROBOT_RADIUS: 1.0               # [m] Robot radius. For 'bus' models, this is the width and half the length of the bus.
+      MAX_SPEED: 2                    # [m/s] Maximum speed of robot
+      TURNING_RADIUS: 1.0             # [m] Turning radius of robot with unicycle model
+      # [ADVANCED]:      GBP Factor strengths
+      SIGMA_VARIABLE_HORIZON: 0.01    # Prior on robot's horizon in its planned path. (higher means horizon is more flexible in planning)
+      SIGMA_FACTOR_DYNAMICS: 0.1      # Dynamics factor (robot's constant-velocity motion model)
+      SIGMA_FACTOR_UNICYCLE: 0.001    # Unicycle factor (robot's unicycle motion model)
+      SIGMA_FACTOR_INTERROBOT: 0.01   # Inter-robot factor (robots should not collide)
+      SIGMA_FACTOR_OBSTACLE: 0.01     # Obstacle factor (robots should not collide with obstacles)
+
+  # CONSENSUS layer: 'continuous' (space R^N|SE2|SO2) or 'discrete' (num_decisions), and factor sigmas.
+  - name: Consensus
+    type: consensus
+    params:
+      TYPE: continuous
+      SPACE: SE2
+      NUM_DECISIONS: 10
+      SEED_ROBOTS_PROPORTION: 0.0       # proportion [0,1] of robots fixed as "seed/informed" robots
+      SEED_DECISION: 3           # the decision seed robots hold fixed (discrete consensus)
+      # [ADVANCED]:      GBP Factor strengths
+      SIGMA_FACTOR_SMOOTHNESS: 0.05     # smoothness factor
+      SIGMA_VAR_PRIOR: 1.0              # prior factor
+      SIGMA_VAR_SLIDING_WINDOW: 0.1     # temporal consistency factor (sliding window)
+      NUM_VAR_SLIDING_WINDOW: 3         # Number of timesteps to keep in sliding window (sliding window size)
+      SLIDING_WINDOW_TIMESTEP_FREQ: 10   # How often to add a new timestep to the sliding window (in timesteps)
+
+# ================  ADVANCED — GBP solver (defaults in Globals.cpp)  ================
+# Number of External GBP iterations per timestep.
+# Number of Internal GBP iterations is set in Globals.cpp (default 2).
+# Total GBP iterations per timestep = NUM_ITERS * NUM_INTERNAL_ITERS.
+NUM_ITERS: 2

@@ -63,6 +63,7 @@ vcpkg_installed/
 
 # debug information files
 *.dwo
+.DS_Store
 
 # test output & cache
 Testing/

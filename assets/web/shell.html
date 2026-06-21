@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>DANCeRS</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #15171c; }
+    body { color: #ddd; font: 15px/1.55 system-ui, -apple-system, sans-serif; }
+    /* Document-style page: a centred column with the canvas embedded, scrolls normally. */
+    #page { max-width: 1100px; margin: 0 auto; padding: 28px 20px 60px; }
+    #page h1 { margin: 0; font-size: 30px; font-weight: 700; color: #fff; letter-spacing: -0.01em; }
+    #page .subtitle { margin: 4px 0 0; color: #9aa0aa; font-size: 14px; }
+    #page .intro { margin: 16px 0 22px; color: #c2c7d0; }
+    #page .intro a { color: #8ab4f8; text-decoration: none; }
+    #page .intro a:hover { text-decoration: underline; }
+    /* The canvas keeps its intrinsic aspect (controls panel + square world) and scales to fit. */
+    #canvasWrap { position: relative; min-height: 200px; display: flex; justify-content: center; }
+    canvas#canvas { display: block; border: 0; outline: none; background: #000; border-radius: 8px;
+                    max-width: 100%; height: auto; }
+    #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+               color: #aaa; font: 16px system-ui, sans-serif; }
+  </style>
+</head>
+<body>
+  <div id="page">
+    <h1>DANCeRS Web Demo</h1>
+    <p class="subtitle">© Aalok Patwardhan</p>
+    <p class="intro">These are the web demos of the code examples at
+      <a href="https://github.com/aalpatya/dancers" target="_blank" rel="noopener">github.com/aalpatya/dancers</a>.</p>
+      Please note, the demo here <b>will be slower and lower graphics quality</b> than if you compile the code yourself!<br>
+      <b>Graphics may not load properly on mobile browsers</b><br>
+      Use the controls panel on the left of the simulation to change the config, scenario and
+      parameters. <br>
+
+      Mouse Drag: Rotate, Shift+Drag: Pan
+    <div id="canvasWrap">
+      <div id="loading">Loading DANCeRS…</div>
+      <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+    </div>
+  </div>
+
+  <script>
+    // The in-canvas controls panel drives everything; this page just boots the wasm module. A config
+    // switch / "Apply & Reset" in the panel reloads the page with ?config=<file>&set=<KEY=VALUE;...>,
+    // which we forward to the program as --cfg / --set (see Globals::parse_global_args).
+    var qs   = new URLSearchParams(location.search);
+    var cfg  = qs.get('config') || 'config/joint_consensus_shape_formation.yaml';
+    var set  = qs.get('set') || '';
+    var args = ['--cfg', cfg];
+    if (set) args.push('--set', set);
+
+    var Module = {
+      arguments: args,
+      canvas: document.getElementById('canvas'),
+      print:    function (t) { console.log(t); },
+      printErr: function (t) { console.error(t); },
+      onRuntimeInitialized: function () {
+        var el = document.getElementById('loading'); if (el) el.style.display = 'none';
+      },
+    };
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>
