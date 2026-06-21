@@ -43,6 +43,7 @@
 build/
 Build/
 build-*/
+build_web/
 
 # CMake generated files
 CMakeFiles/
