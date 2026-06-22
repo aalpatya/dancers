@@ -11,6 +11,8 @@ This is the official code for [**DANCeRS: A Distributed Algorithm for Negotiatin
 
 *Authors*: [Aalok Patwardhan](www.aalok.uk) and Andrew J Davison
 
+### [**Project Page**](https://aalpatya.github.io/dancers) | [**Web Demo**](https://aalpatya.github.io/dancers/demo) | [**Paper**](https://arxiv.org/abs/2508.18153)
+
 ---
 ## What does it do? 
 It is a **Gaussian Belief Propagation (GBP)** library in C++ that also handles these applications:
@@ -21,13 +23,14 @@ It is a **Gaussian Belief Propagation (GBP)** library in C++ that also handles t
 
 **All without any central coordinator!**
 
-You can also run [**any GBP Factorgraph Optimisation problem**](#standard-gbp-factorgraph-optimisation) on Euclidean and Lie group manifolds $\{ \mathbb{R}^N, SO(2),\ SE(2),\ SO(3),\ SE(3),\ \dots \}$
+🚀 You can also run [**any GBP Factorgraph Optimisation problem**](#standard-gbp-factorgraph-optimisation) on Euclidean and Lie group manifolds $\{ \mathbb{R}^N, SO(2),\ SE(2),\ SO(3),\ SE(3),\ \dots \}$
+> [Check out the **Web Demo**](https://aalpatya.github.io/dancers/demo) 
 
 ## How does it work?
 
 
 - Robots coordinate using [Gaussian Belief Propagation](https://gaussianbp.github.io/) (GBP)
-- Read the paper at https://arxiv.org/html/2508.18153v1
+- Read the [DANCeRS paper](https://arxiv.org/html/2508.18153v1)
 - See the [Project Page](https://aalpatya.github.io/dancers)
 - See the [work that came before this](https://aalpatya.github.io/research)
 
