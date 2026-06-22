@@ -26,6 +26,9 @@
 #include <gbp/FactorGraph.h>
 #include <gbp/Variable.h>
 #include <gbp/Factor.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>   // the browser drives the frame loop (no blocking while-loop on web)
+#endif
 
 // ---- model + canvas constants, and the value <-> screen mappings used by the draws below ----
 const int    N = 40;                  // number of nodes in the fitted chain
@@ -93,24 +96,26 @@ int main(){
     gbp::config().damping = 0.5f;
     gbp::config().robust_threshold = ROBUST_C;   // shared by every robust factor
 
-    const LieGroup R1 = Eigen::VectorXd::Zero(1);   // each node is a height in R^1
-    FactorGraph fg(0);
-    int  layer_id = 0;
-    std::vector<std::shared_ptr<LineVariable>> nodes;
-    std::vector<std::shared_ptr<DataFactor>> data;
-    long iters = 0;
-    
-    RobustKernel kernel = RobustKernel::None;
-    auto applyKernel = [&]{ for (auto& [k, f] : fg.layer(layer_id).factors_) f->setRobust(kernel); };
+    // State is `static` so it survives Emscripten unwinding main()'s stack when it hands the frame
+    // callback to the browser. On desktop this is identical (main runs once anyway).
+    static const LieGroup R1 = Eigen::VectorXd::Zero(1);   // each node is a height in R^1
+    static FactorGraph fg(0);
+    static int  layer_id = 0;
+    static std::vector<std::shared_ptr<LineVariable>> nodes;
+    static std::vector<std::shared_ptr<DataFactor>> data;
+    static long iters = 0;
+
+    static RobustKernel kernel = RobustKernel::None;
+    static auto applyKernel = [&]{ for (auto& [k, f] : fg.layer(layer_id).factors_) f->setRobust(kernel); };
     // Prime: one variable sweep so every node sends its prior message to its factors. Beliefs don't move
     // yet, but the outgoing messages now carry the prior precision, so factors aren't singular on the
     // first update.
-    auto prime = [&]{ fg.layer(layer_id).variableIteration(); };
+    static auto prime = [&]{ fg.layer(layer_id).variableIteration(); };
 
     // Rebuild from scratch: N nodes at the bottom joined by smoothness factors, no data points. The weak
     // bottom prior (large sigma) barely influences the fit but keeps every belief well-posed, and is what
     // starts the nodes at the bottom before any messages arrive.
-    auto reset = [&]{
+    static auto reset = [&]{
         fg = FactorGraph(0);
         layer_id = fg.addLayer("1DLineFittingLayer")->lid_;
         nodes.clear(); data.clear(); iters = 0;
@@ -129,21 +134,21 @@ int main(){
         prime();
     };
     // Add a data factor at fractional node position x, pulling the chain toward value y.
-    auto addPoint = [&](float x, double y){
+    static auto addPoint = [&](float x, double y){
         int i = std::clamp((int)std::floor(x), 0, N-2);
         auto f = fg.addFactor<DataFactor>(layer_id, {nodes[i]->key_, nodes[i+1]->key_}, "R1",
                      Eigen::VectorXd::Constant(1, y), Eigen::VectorXd::Constant(1, SIGMA_DATA), x, x - i);
         f->setRobust(kernel);
         data.push_back(f);
     };
-    auto addRow = [&](const std::function<double(float)>& fn){
+    static auto addRow = [&](const std::function<double(float)>& fn){
         for (float x = 1; x <= N-2; x += 1) addPoint(x, std::clamp(fn(x), YMIN, YMAX));
         prime();
     };
     // One asynchronous GBP update centred on node i (matches the gaussianBP.github.io demo): each
     // neighbour sharing a factor with node i re-gathers ALL its factors - so it feels both node i's
     // belief and its own data - then updates. Node i itself is not updated, so its belief pushes outward.
-    auto asyncFromNode = [&](int i){
+    static auto asyncFromNode = [&](int i){
         FactorGraphLayer& L = fg.layer(layer_id);
         std::set<Key> neighbours;
         for (const Key& fk : nodes[i]->connected_f_keys_)
@@ -158,21 +163,21 @@ int main(){
 
     reset();
 
-    bool running = false;     // synchronous GBP iterating?
-    bool asyncMode = false;   // asynchronous mode: click a node to update its neighbourhood
-    int  kernelIdx = 0;       // dropdown index: 0 None, 1 Huber, 2 DCS
-    bool kernelEdit = false;  // dropdown open?
-    int  held = -1;           // index of the data point being dragged, or -1
-    std::mt19937 rng(1);
+    static bool running = false;     // synchronous GBP iterating?
+    static bool asyncMode = false;   // asynchronous mode: click a node to update its neighbourhood
+    static int  kernelIdx = 0;       // dropdown index: 0 None, 1 Huber, 2 DCS
+    static bool kernelEdit = false;  // dropdown open?
+    static int  held = -1;           // index of the data point being dragged, or -1
+    static std::mt19937 rng(1);
 
     SetTraceLogLevel(LOG_WARNING);
     InitWindow(SCREEN, HEIGHT, "DANCeRS - 1D line fitting");
     SetTargetFPS(60);
 
-    Rectangle bRun{X0, 14, 185, 26}, bStepGBP{X0+191, 14, 30, 26}, bAsync{X0+227, 14, 170, 26}, bKernel{X0+W-150, 14, 150, 26};
-    Rectangle bOutlier{X0+180, 56, 84, 26}, bStep{X0+272, 56, 64, 26}, bRandom{X0+344, 56, 86, 26}, bClear{X0+438, 56, 64, 26};
+    static Rectangle bRun{X0, 14, 185, 26}, bStepGBP{X0+191, 14, 30, 26}, bAsync{X0+227, 14, 170, 26}, bKernel{X0+W-150, 14, 150, 26};
+    static Rectangle bOutlier{X0+180, 56, 84, 26}, bStep{X0+272, 56, 64, 26}, bRandom{X0+344, 56, 86, 26}, bClear{X0+438, 56, 64, 26};
 
-    while (!WindowShouldClose()){
+    static std::function<void()> frame = [&](){
         Vector2 mouse = GetMousePosition();
 
         // ---- keyboard ----
@@ -250,7 +255,13 @@ int main(){
         if (GuiDropdownBox(bKernel, "None;Huber;DCS", &kernelIdx, kernelEdit)) kernelEdit = !kernelEdit;
         if (kernelIdx != prev){ kernel = kernelOf(kernelIdx); applyKernel(); }
         EndDrawing();
-    }
+    };
+
+#ifdef __EMSCRIPTEN__
+    emscripten_set_main_loop([]{ frame(); }, 0, 1);   // browser calls frame() each animation tick
+#else
+    while (!WindowShouldClose()) frame();
     CloseWindow();
+#endif
     return 0;
 }

@@ -61,7 +61,7 @@ template <typename First, typename... Rest> void print(const First& first, const
 /*******************************************************************************/
 // Wrap an angle to (-pi, pi].
 /*******************************************************************************/
-inline double angleOp(const double& a){
+inline double wrapAngle(const double& a){
     return atan2(sin(a), cos(a));
 };
 /*******************************************************************************/

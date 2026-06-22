@@ -129,7 +129,7 @@ if(EMSCRIPTEN)
     # OUTPUT_NAME index + SUFFIX .html -> emit index.html/.js/.wasm/.data (so GitHub Pages serves it at
     # the folder URL). LINK_DEPENDS -> relink when the shell or any config changes.
     set_target_properties(dancers PROPERTIES OUTPUT_NAME "index" SUFFIX ".html"
-        LINK_DEPENDS "${CMAKE_SOURCE_DIR}/assets/web/shell.html;${DANCERS_CONFIGS}")
+        LINK_DEPENDS "${CMAKE_SOURCE_DIR}/assets/web/embed_shell.html;${DANCERS_CONFIGS}")
     target_link_options(dancers PRIVATE
         -sUSE_GLFW=3
         -sALLOW_MEMORY_GROWTH=1
@@ -137,12 +137,31 @@ if(EMSCRIPTEN)
         -sASSERTIONS=1
         -sGL_ENABLE_GET_PROC_ADDRESS
         "SHELL:-sEXPORTED_RUNTIME_METHODS=['FS']"   # let the shell read/write the config in the virtual FS
-        "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/assets/web/shell.html"   # custom page, no Emscripten branding
+        "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/assets/web/embed_shell.html"   # minimal canvas (the demos page is the front door)
         "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/config@/app/config"
         "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/assets/shaders@/app/assets/shaders"
         "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/assets/models@/app/assets/models"
         "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/assets/imgs@/app/assets/imgs"
     )
+
+    # The visual gbp examples, each built as its own web page (gbp-1d-line-fitting.html,
+    # gbp-se2-localisation.html). They need no preloaded assets (raylib's embedded default font only).
+    # assets/web/demos.html is the front page that embeds the selected demo (multirobot or gbp) in an iframe.
+    foreach(demo gbp-1d-line-fitting gbp-se2-localisation)
+        add_executable(${demo} src/examples/${demo}.cpp)
+        target_link_libraries(${demo} PUBLIC gbp Eigen3::Eigen)
+        set_target_properties(${demo} PROPERTIES SUFFIX ".html"
+            LINK_DEPENDS "${CMAKE_SOURCE_DIR}/assets/web/gbp_demo_shell.html")
+        target_link_options(${demo} PRIVATE
+            -sUSE_GLFW=3
+            -sALLOW_MEMORY_GROWTH=1
+            -sASSERTIONS=1
+            -sGL_ENABLE_GET_PROC_ADDRESS
+            "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/assets/web/gbp_demo_shell.html"
+        )
+    endforeach()
+    # Put the demos front page alongside the build outputs in build_web/.
+    configure_file(${CMAKE_SOURCE_DIR}/assets/web/demos.html ${CMAKE_BINARY_DIR}/demos.html COPYONLY)
 endif()
 
 #################################################################
@@ -154,7 +173,8 @@ if(NOT EMSCRIPTEN)
     add_executable(gbp-three-variable-factorgraph   src/examples/gbp-three-variable-factorgraph.cpp)
     add_executable(gbp-two-layer-factorgraph src/examples/gbp-two-layer-factorgraph.cpp)
     add_executable(gbp-1d-line-fitting       src/examples/gbp-1d-line-fitting.cpp)
-    foreach(ex gbp-three-variable-factorgraph gbp-two-layer-factorgraph gbp-1d-line-fitting)
+    add_executable(gbp-se2-localisation      src/examples/gbp-se2-localisation.cpp)
+    foreach(ex gbp-three-variable-factorgraph gbp-two-layer-factorgraph gbp-1d-line-fitting gbp-se2-localisation)
         target_link_libraries(${ex} PUBLIC gbp Eigen3::Eigen)
         set_target_properties(${ex} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples)
         if (APPLE)

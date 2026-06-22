@@ -68,10 +68,10 @@ void Variable::updateBelief(){
     // Built-in unary prior, linearised on the manifold. For Euclidean J = -I, so this is just
     // eta = Lambda*(prior_mu - state).
     if (!prior_.lambda.isZero()){
-        Eigen::VectorXd r   = prior_.mu - state;
-        Eigen::MatrixXd J   = -LG.drExpInv(-r);
+        Eigen::VectorXd tau = prior_.mu - state;
+        Eigen::MatrixXd J   = -LG.drExpInv(-tau);
         Eigen::MatrixXd JtL = J.transpose() * prior_.lambda;
-        eta_all += -JtL * r;
+        eta_all += -JtL * tau;
         lam_all +=  JtL * J;
     }
 

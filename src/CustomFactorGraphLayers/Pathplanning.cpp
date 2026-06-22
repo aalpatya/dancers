@@ -60,7 +60,7 @@ void PlanningLayer::initialiseLayerNodes(FactorGraph& owner){
     for (int i = 0; i < num_variables_; i++){
         // Interpolate mu between start and horizon
         mu = start + (horizon - start) * (float)(variable_timesteps[i]/(float)variable_timesteps.back());
-        mu(2) = angleOp(mu(2));
+        mu(2) = wrapAngle(mu(2));
         // Pin the start and horizon variables during optimisation
         sigma = (i==0 || i==num_variables_-1) ? robot->SIGMA_POSE_FIXED : 1e4;
         if (i==num_variables_-1) {
@@ -129,7 +129,7 @@ void PlanningLayer::createInterrobotFactors(FactorGraph& owner, int other_robot_
         double sigma = SIGMA_FACTOR_INTERROBOT;
         auto factor = robot->addFactor<InterrobotFactor>(layer, {this_var_key, other_var_key}, sigma, robot->robot_radius_, dof_dynamics_);
         // addFactor registers the local variable; the cross-robot half lives in the robot inbox.
-        robot->inbox_[std::make_pair(factor->key_, other_var_key)] = Message(factor->LG);
+        robot->inbox_[std::make_pair(factor->key_, other_var_key)] = Message(factor->groupForKey(other_var_key));
     }
 }
 
@@ -164,7 +164,7 @@ void PlanningLayer::postGBPUpdateNodes(FactorGraph& owner){
 /***************************************************************************/
 void PlanningLayer::propogateCurrent(Robot* robot){
     Eigen::VectorXd increment = (robot->getVar(lid_, 1)->belief_.mu - robot->getVar(lid_, 0)->belief_.mu);
-    increment(2) = angleOp(increment(2)); increment *= robot->TIMESTEP / robot->T0;
+    increment(2) = wrapAngle(increment(2)); increment *= robot->TIMESTEP / robot->T0;
     // Clamp the position step so the robot doesn't jump when interrobot repulsion stretches the path.
     double pos_step = increment({0,1}).norm();
     if (pos_step > robot->max_speed_ * robot->TIMESTEP)
@@ -299,28 +299,29 @@ void PlanningLayer::draw(Robot* robot, Simulator* sim, Color& col){
 DynamicsFactor::DynamicsFactor(Key fac_key, std::vector<Key> connected_variables,
     float sigma, float dt, int dof_dynamics)
     : Factor{fac_key, connected_variables, "R" + std::to_string(dof_dynamics), Eigen::VectorXd::Zero(dof_dynamics), Eigen::VectorXd::Constant(dof_dynamics, sigma)}{
-        Eigen::MatrixXd I = Eigen::MatrixXd::Identity(n_dofs_/2,n_dofs_/2);
-        Eigen::MatrixXd O = Eigen::MatrixXd::Zero(n_dofs_/2,n_dofs_/2);
+        Eigen::MatrixXd I = Eigen::MatrixXd::Identity(dof_dynamics/2,dof_dynamics/2);
+        Eigen::MatrixXd O = Eigen::MatrixXd::Zero(dof_dynamics/2,dof_dynamics/2);
         Eigen::MatrixXd Qc_inv = pow(sigma, -2.) * I;
 
-        Eigen::MatrixXd Qi_inv(n_dofs_, n_dofs_);
+        Eigen::MatrixXd Qi_inv(dof_dynamics, dof_dynamics);
         Qi_inv << 12.*pow(dt, -3.) * Qc_inv,   -6.*pow(dt, -2.) * Qc_inv,
-                  -6.*pow(dt, -2.) * Qc_inv,   4./dt * Qc_inv;   
+                  -6.*pow(dt, -2.) * Qc_inv,   4./dt * Qc_inv;
 
         this->meas_model_lambda_ = Qi_inv;
 
         // Jacobian is constant (model is linear), so cache it.
-        J_lin_ = Eigen::MatrixXd::Zero(n_dofs_, n_dofs_*2);
+        J_lin_ = Eigen::MatrixXd::Zero(dof_dynamics, dof_dynamics*2);
         J_lin_ << I, dt*I, -1*I,    O,
                   O,    I,    O, -1*I; 
 
     };
 
 Eigen::MatrixXd DynamicsFactor::computeResidual(const std::vector<LieGroup>& X){
-    Eigen::VectorXd x(n_dofs_*2);
+    int n_dofs = X[0].dof();
+    Eigen::VectorXd x(n_dofs*2);
     x << X[0].coeffs(), X[1].coeffs();   // the factor is linear in [state_i, state_{i+1}]
     Eigen::VectorXd h = J_lin_ * x;
-    h(2) = angleOp(h(2));
+    h(2) = wrapAngle(h(2));
     return h - z_;
 }
 std::pair<Eigen::VectorXd, Eigen::MatrixXd> DynamicsFactor::computeResidualAndJacobian(const std::vector<LieGroup>& X){
@@ -351,7 +352,8 @@ InterrobotFactor::InterrobotFactor(Key fac_key, std::vector<Key> connected_varia
 
 
 Eigen::MatrixXd InterrobotFactor::computeJacobian(const std::vector<LieGroup>& X){
-    Eigen::MatrixXd J = Eigen::MatrixXd::Zero(n_dofs_meas_, n_dofs_*2);
+    int n_dofs = X[0].dof();
+    Eigen::MatrixXd J = Eigen::MatrixXd::Zero(n_dofs_meas_, n_dofs*2);
     Eigen::VectorXd a = X[0].coeffs(), b = X[1].coeffs();
     double x1 = a(0), y1 = a(1), x2 = b(0), y2 = b(1);
     double r2 = Eigen::Vector2d(x2-x1, y2-y1).squaredNorm();
@@ -362,8 +364,8 @@ Eigen::MatrixXd InterrobotFactor::computeJacobian(const std::vector<LieGroup>& X
         double K = (k1*exp(k1*r)) / r;
         J(0, 0) = K * (x1 - x2);
         J(0, 1) = K * (y1 - y2);
-        J(0, n_dofs_) = K * (x2 - x1);
-        J(0, n_dofs_+1) = K * (y2 - y1);
+        J(0, n_dofs) = K * (x2 - x1);
+        J(0, n_dofs+1) = K * (y2 - y1);
     }
     return J;
 };
@@ -418,7 +420,7 @@ Eigen::MatrixXd ObstacleFactor::computeResidual(const std::vector<LieGroup>& X){
     Eigen::VectorXd s = X[0].coeffs();
     // White areas are obstacles, so h(0) is 1 there.
     double x, y;
-    if (n_dofs_!=6){
+    if (X[0].dof()!=6){
         double V = s({3,4}).norm(); double theta = s(2); double thetadot = s(5);
         x = s(0) + (V * cos(theta)) * globals.TIMESTEP;
         y = s(1) + (V * sin(theta)) * globals.TIMESTEP;

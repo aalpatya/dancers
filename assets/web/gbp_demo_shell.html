@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>GBP demo</title>
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #15171c; overflow: hidden; }
+    #wrap { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+    canvas { display: block; background: #000; outline: none; max-width: 100%; max-height: 100%; }
+    #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+               color: #aaa; font: 15px system-ui, sans-serif; }
+  </style>
+</head>
+<body>
+  <!-- Minimal shell: this page is embedded in an iframe by gbp.html, so it's just the canvas. -->
+  <div id="wrap">
+    <div id="loading">Loading…</div>
+    <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+  </div>
+  <script>
+    var Module = {
+      canvas: document.getElementById('canvas'),
+      print:    function (t) { console.log(t); },
+      printErr: function (t) { console.error(t); },
+      onRuntimeInitialized: function () {
+        var el = document.getElementById('loading'); if (el) el.style.display = 'none';
+      },
+    };
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>

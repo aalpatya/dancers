@@ -70,7 +70,7 @@ void ConsensusLayer::createInterrobotFactors(FactorGraph& owner, int other_robot
         }
         factor = robot->addFactor<SmoothnessFactor>(layer, {this_var_key, other_var_key}, lieGroup_.name(), Eigen::VectorXd::Zero(n), sigma_list_smoothness);
         // addFactor registers the local variable; the cross-robot half lives in the robot inbox.
-        robot->inbox_[std::make_pair(factor->key_, other_var_key)] = Message(factor->LG);
+        robot->inbox_[std::make_pair(factor->key_, other_var_key)] = Message(factor->groupForKey(other_var_key));
     }
 }
 

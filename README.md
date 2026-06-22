@@ -305,7 +305,7 @@ Want to add your own GBP sub-problem (a **layer**), custom factors or variables?
 
 # Standard GBP Factorgraph Optimisation
 
-The GBP library can be used on its own, with no Simulator. Three standalone examples live in
+The GBP library can be used on its own, with no Simulator. Four standalone examples live in
 [`src/examples/`](src/examples/), in increasing order of complexity.
 
 > ## New to factor graphs or GBP?
@@ -380,6 +380,17 @@ An interactive (raylib) take on the classic GBP **1D line fitting** demo from [g
 
 ```bash
 ./build/examples/gbp-1d-line-fitting
+```
+
+### `gbp-se2-localisation`
+<p align="center">
+  <img src="assets/demo_gifs/se2-localisation.gif" width="50%" alt="Interactive SE(2) localisation with GBP"/>
+</p>
+
+An interactive (raylib) **SE(2) localisation** demo — the GBP counterpart of manif's [`se2_sam.cpp`](https://github.com/artivis/manif/blob/devel/examples/se2_sam.cpp). Drive a ground-truth robot around and GBP estimates its trajectory from noisy **odometry** and **landmark** measurements. The factor graph mixes Lie groups in a single layer: the path is a chain of **SE2 pose** variables, the **landmarks** are **R2** variables, joined by odometry factors (relative-pose `between`) and landmark factors (the landmark's position in the robot frame, `X⁻¹·b`) — both with **analytic manif Jacobians**. Drive with the **arrow keys**, **left-click** to drop landmarks, or use the **Forward 1 m / Rotate ±90° / Reset** buttons. Every pose variable is drawn with its 2σ position-covariance ellipse, alongside the ground-truth robot, so you can watch the uncertainty grow while dead-reckoning and collapse each time a landmark comes into range. See [`src/examples/gbp-se2-localisation.cpp`](src/examples/gbp-se2-localisation.cpp).
+
+```bash
+./build/examples/gbp-se2-localisation
 ```
 
 ---

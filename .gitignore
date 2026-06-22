@@ -10,18 +10,10 @@
 *.gch
 *.pch
 
-# Linker files
-*.ilk
-
-# Debugger Files
-*.pdb
-
 # Compiled Dynamic libraries
 *.so
 *.dylib
 *.dll
-*.so.*
-
 
 # Fortran module files
 *.mod
@@ -37,34 +29,19 @@
 *.exe
 *.out
 *.app
+*.DS_Store
 
-# Build directories
 build/
-Build/
-build-*/
 build_web/
+debug/
+thirdparty/smooth
 
-# CMake generated files
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
-install_manifest.txt
-compile_commands.json
+# Generated intermediates (scenario/formation-point json)
+build/temp/
+temp/
 
-# Temporary files
-*.tmp
-*.log
-*.bak
-*.swp
+# Python
+__pycache__/
 
-# vcpkg
-vcpkg_installed/
-
-# debug information files
-*.dwo
-.DS_Store
-
-# test output & cache
-Testing/
-.cache/
+# VS Code
+.vscode/
