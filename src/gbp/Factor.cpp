@@ -11,30 +11,42 @@
 #include <raylib.h>
 
 /*****************************************************************************************************/
-// Factor constructor. The group LG is R^n for the Euclidean case or any Lie group.
+// Factor constructor.
 //  - connected_variables: keys of the variables this factor connects (order matters).
+//  - groups: each variable's Lie group, in the same order; pass one name to use it for all of them.
 //  - observation z: the measurement (the residual h(X) (-) z is taken against it).
 //  - sigma_prior_list: per-dof measurement std-devs; precision is diag(sigma_prior_list)^-2.
-//  - n_dofs_meas: dimension of z; n_dofs_var: per-variable dimension.
 
 // Equations eg (2.71) reference the PhD thesis at:
 //      https://spiral.imperial.ac.uk/entities/publication/d7f69b3b-29a9-4d28-962a-2f7474454359
 //      DOI={https://doi.org/10.25560/128135}
 /*****************************************************************************************************/
-Factor::Factor(Key fac_key, std::vector<Key> connected_variables, const std::string& group,
+Factor::Factor(Key fac_key, std::vector<Key> connected_variables, const std::vector<std::string>& groups,
         const Eigen::VectorXd& observation, Eigen::VectorXd sigma_prior_list)
         : fid_(fac_key.node_id_), rid_(fac_key.graph_id_), lid_(fac_key.lid_), key_(fac_key) {
         z_ = observation;
-        // A group of the right type/dof to drive the manifold math; its value is unused by a factor.
-        LG = makeLieGroup(group);
-        n_dofs_ = LG.dof();        // num dof of each variable that factor is connected to
-        n_dofs_meas_ = z_.size();  // num dof of the observation z
         connected_v_keys_ = connected_variables;
+
+        // Reuse a single group name for every variable; otherwise there must be one name per variable.
+        std::vector<std::string> grps = groups;
+        if (grps.size() == 1 && connected_v_keys_.size() > 1){
+            std::string g0 = grps[0];   // copy out first: assign() reallocates before reading grps[0]
+            grps.assign(connected_v_keys_.size(), g0);
+        }
+        if (grps.size() != connected_v_keys_.size())
+            throw std::runtime_error("Factor: number of groups (" + std::to_string(grps.size()) +
+                ") must be 1 or match the number of connected variables (" +
+                std::to_string(connected_v_keys_.size()) + ")");
+
+        for (size_t i = 0; i < connected_v_keys_.size(); ++i)
+            variable_groups_[connected_v_keys_[i]] = makeLieGroup(grps[i]);
+
+        n_dofs_meas_ = z_.size();  // num dof of the observation z
         meas_model_lambda_ = sigma_prior_list.cwiseProduct(sigma_prior_list).cwiseInverse().asDiagonal();
 
-        // Empty inbox/outbox, one zero message per connected variable
+        // Seed each mailbox with a zero-information message in that variable's group.
         for (auto k : connected_v_keys_) {
-            Message zero_msg(LG);
+            Message zero_msg(variable_groups_.at(k));
             inbox_[k] = zero_msg;
             outbox_[k] = zero_msg;
         }
@@ -57,16 +69,20 @@ void Factor::draw(Eigen::VectorXd p1, Eigen::VectorXd p2, Color color){
 // basis dof j), so the result is dr/dtau. For a Euclidean group the retraction is plain addition.
 /*****************************************************************************************************/
 Eigen::MatrixXd Factor::jacobianFirstOrder(const std::vector<LieGroup>& X0, std::function<Eigen::MatrixXd(const std::vector<LieGroup>&)> hfunc){
-    int n_dofs = X0.front().dof();   // dof of each connected variable, inferred from the lin point
+    int total_dofs = 0;
+    for (const auto& x : X0) total_dofs += x.dof();   // each variable in its own group (dofs may differ)
     Eigen::MatrixXd h0 = hfunc(X0);
-    Eigen::MatrixXd jac_out = Eigen::MatrixXd::Zero(h0.size(), n_dofs * (int)X0.size());
+    Eigen::MatrixXd jac_out = Eigen::MatrixXd::Zero(h0.size(), total_dofs);
+    int col = 0;
     for (int k = 0; k < (int)X0.size(); k++){
-        for (int j = 0; j < n_dofs; j++){
-            Eigen::VectorXd dtau = Eigen::VectorXd::Zero(n_dofs); dtau(j) = delta_jac;
+        int dk = X0[k].dof();
+        for (int j = 0; j < dk; j++){
+            Eigen::VectorXd dtau = Eigen::VectorXd::Zero(dk); dtau(j) = delta_jac;
             std::vector<LieGroup> X = X0;
             X[k] = X0[k] + dtau;
-            jac_out(Eigen::all, k*n_dofs + j) = (hfunc(X) - h0) / delta_jac;
+            jac_out(Eigen::all, col + j) = (hfunc(X) - h0) / delta_jac;
         }
+        col += dk;
     }
     return jac_out;
 };
@@ -98,10 +114,13 @@ double Factor::getRobustScale(const Eigen::VectorXd& residual) const {
 // last_outbox_). We only move a lin point when its belief has drifted past relinearise_threshold_.
 /*****************************************************************************************************/
 void Factor::updateLinearisationPoint(){
-    // One lin point per connected variable; (re)seed to identities if inbox size changed (topology change).
-    if ((int)linpoints_.size() != (int)inbox_.size())
-    linpoints_.assign(inbox_.size(), LG.fromCoeffs(Eigen::VectorXd::Zero(n_dofs_)));
-    
+    // One lin point per connected variable, each in that variable's own group (its identity); (re)seed
+    // if the inbox size changed (topology change).
+    if ((int)linpoints_.size() != (int)inbox_.size()){
+        linpoints_.clear();
+        for (auto& [vkey, msg_in] : inbox_) linpoints_.push_back(variable_groups_.at(vkey));
+    }
+
     int i = 0;
     for (auto& [vkey, msg_in] : inbox_) {
         LieGroup belief_mu = msg_in.mu; // fallback: use incoming mean (no last msg yet)
@@ -111,7 +130,7 @@ void Factor::updateLinearisationPoint(){
             LieGroup       mu_in = msg_in.mu;
             // Get the deviation of our last sent message from the incoming message at the tangent-space to mu_in
             Eigen::VectorXd tau  = it->second.mu - mu_in;  // our last msg mean (-) incoming mean
-            Eigen::MatrixXd J    = LG.drExp(tau);
+            Eigen::MatrixXd J    = mu_in.drExp(tau);       // transport in THIS variable's group
             Eigen::MatrixXd Lf   = J.transpose() * it->second.lambda * J; // our last msg precision (warped)
             Eigen::VectorXd mu_full   = (msg_in.lambda + Lf).colPivHouseholderQr().solve(Lf * tau);
             if (mu_full.allFinite()) belief_mu = mu_in + mu_full;  // incoming (x) our last msg = belief
@@ -138,7 +157,7 @@ bool Factor::updateFactor(){
     // Some factors skip work depending on state (e.g. the inter-robot factor when robots are far apart).
     // Send zero-information messages in that case. (skipFactor reads linpoints_.)
     if (this->skipFactor()){
-        for (auto k : connected_v_keys_) this->outbox_[k] = Message(LG);
+        for (auto k : connected_v_keys_) this->outbox_[k] = Message(variable_groups_.at(k));
         return false;
     }
 
@@ -153,6 +172,7 @@ bool Factor::updateFactor(){
     // Condition on the other variables' beliefs
     // Marginalise, and send to each connected variable.
     int marginalisation_idx = 0;
+    int vi = 0;
     for (auto [vkey_out, msg] : inbox_){
         int ndofs = msg.mu.dof();
         auto [conditioned_factor_potential_eta, conditioned_factor_potential_lambda] =
@@ -161,17 +181,20 @@ bool Factor::updateFactor(){
         // Marginalise down to this variable (Schur complement), giving the message info form {eta, lambda}.
         auto [m_eta, m_Lam] = marginaliseFactorDist(conditioned_factor_potential_eta, conditioned_factor_potential_lambda, marginalisation_idx, ndofs);
 
-        // Solve in the tangent space at this variable's lin point, then retract onto the group.
+        // Solve in the tangent space at this variable's lin point, then retract onto ITS group.
         Eigen::VectorXd tau_out = m_Lam.colPivHouseholderQr().solve(m_eta);                             // (2.84)
         if (!tau_out.allFinite()) tau_out = Eigen::VectorXd::Zero(ndofs);
-        LieGroup X = linpoints_[marginalisation_idx / n_dofs_] + tau_out;                               // (2.85)
-        Eigen::MatrixXd Lam_out = LG.drExpInv(tau_out).transpose() * m_Lam * LG.drExpInv(tau_out);    // (2.86)
+        const LieGroup& lp = linpoints_[vi];                                                            // this variable's lin point (its own group)
+        LieGroup X = lp + tau_out;                                                                      // (2.85)
+        Eigen::MatrixXd Jinv = lp.drExpInv(tau_out);
+        Eigen::MatrixXd Lam_out = Jinv.transpose() * m_Lam * Jinv;                                      // (2.86)
 
         Message msg_out = Message(X, Lam_out);   // {mu, lambda}
         applyDamping(msg_out, vkey_out, gbp::config().damping);
         outbox_[vkey_out] = msg_out;
 
         marginalisation_idx += ndofs;
+        ++vi;
     }
     return true;
 };
@@ -186,16 +209,20 @@ std::pair<Eigen::VectorXd, Eigen::MatrixXd> Factor::conditionFactorPotential(Key
     Eigen::VectorXd factor_eta = factor_eta_potential;
     Eigen::MatrixXd factor_lam = factor_lam_potential;
     int stateVectorIdx = 0;
+    int vi = 0;
     for (auto [vkey_other, msg] : inbox_){
         int n_dofs = msg.mu.dof();
         if (vkey_other != vkey_out) {
-            Eigen::VectorXd tau = msg.mu - linpoints_[stateVectorIdx / n_dofs_];
-            Eigen::MatrixXd Lam = LG.drExp(tau).transpose() * msg.lambda * LG.drExp(tau);
+            const LieGroup& lp = linpoints_[vi];           // the other variable's lin point (its own group)
+            Eigen::VectorXd tau = msg.mu - lp;
+            Eigen::MatrixXd Jt  = lp.drExp(tau);
+            Eigen::MatrixXd Lam = Jt.transpose() * msg.lambda * Jt;
             Eigen::VectorXd eta = Lam * tau;
             factor_eta(seqN(stateVectorIdx, n_dofs)) += eta;
             factor_lam(seqN(stateVectorIdx, n_dofs), seqN(stateVectorIdx, n_dofs)) += Lam;
         }
         stateVectorIdx += n_dofs;
+        ++vi;
     }
     return {factor_eta, factor_lam};
 };
@@ -268,7 +295,7 @@ SmoothnessFactor::SmoothnessFactor(Key fac_key, std::vector<Key> connected_varia
 };
 
 std::pair<Eigen::VectorXd, Eigen::MatrixXd> SmoothnessFactor::computeResidualAndJacobian(const std::vector<LieGroup>& X){
-    int n = n_dofs_;
+    int n = X[0].dof();
     // r = X2 (-) X1 with EXACT analytic Jacobians from manif's right-minus (out-parameters):
     //   J_X2 = drExpInv(r),   J_X1 = -drExpInv(r) * Ad(X1^-1 * X2).
     Eigen::MatrixXd J_X2, J_X1;

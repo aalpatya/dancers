@@ -2,7 +2,6 @@
 cmake_minimum_required(VERSION 3.15)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 20)
-# The desktop build uses pthreads/OpenMP.
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 # Set default build type to release
 if(NOT CMAKE_BUILD_TYPE)
@@ -22,8 +21,7 @@ set(BUILD_TESTING OFF CACHE BOOL "" FORCE)   # don't build deps' test suites
 
 # Eigen — header-only, vendored in thirdparty/Eigen with a committed config package
 # (thirdparty/Eigen3Config.cmake). Point Eigen3_DIR at it so find_package(Eigen3) resolves the headers
-# on any platform without fetching or building. find_package defines the Eigen3::Eigen target; smooth's
-# internal find_package(Eigen3) reuses the same config.
+# without fetching or building. find_package defines the Eigen3::Eigen target.
 set(Eigen3_DIR "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty" CACHE PATH "" FORCE)
 find_package(Eigen3 REQUIRED)
 
@@ -65,8 +63,8 @@ src/gbp/Variable.cpp
 src/gbp/Factor.cpp
 )
 
-# Baked-in path definitions (resolve from anywhere). GLSL_DIR: the shader dialect subdir under
-# assets/shaders ("glsl330" for desktop GL).
+# Baked-in path definitions (resolve from anywhere). PROJECT_ROOT: the repo root. GLSL_DIR: the shader
+# dialect subdir under assets/shaders ("glsl330" for desktop GL).
 set(GBP_PROJECT_ROOT "${CMAKE_SOURCE_DIR}")
 set(GBP_GLSL_DIR "glsl330")
 target_compile_definitions(gbp PUBLIC PROJECT_ROOT="${GBP_PROJECT_ROOT}" GLSL_DIR="${GBP_GLSL_DIR}")
@@ -96,7 +94,7 @@ add_executable(dancers
 )
 target_link_libraries(dancers PUBLIC gbp Eigen3::Eigen)
 
-# Checks if OSX and links appropriate frameworks (only required on MacOS)
+# Checks if OSX and links appropriate frameworks (only required on MacOS).
 if (APPLE)
     target_link_libraries(
       dancers PUBLIC
@@ -113,7 +111,8 @@ endif()
 add_executable(gbp-three-variable-factorgraph   src/examples/gbp-three-variable-factorgraph.cpp)
 add_executable(gbp-two-layer-factorgraph src/examples/gbp-two-layer-factorgraph.cpp)
 add_executable(gbp-1d-line-fitting       src/examples/gbp-1d-line-fitting.cpp)
-foreach(ex gbp-three-variable-factorgraph gbp-two-layer-factorgraph gbp-1d-line-fitting)
+add_executable(gbp-se2-localisation      src/examples/gbp-se2-localisation.cpp)
+foreach(ex gbp-three-variable-factorgraph gbp-two-layer-factorgraph gbp-1d-line-fitting gbp-se2-localisation)
     target_link_libraries(${ex} PUBLIC gbp Eigen3::Eigen)
     set_target_properties(${ex} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples)
     if (APPLE)

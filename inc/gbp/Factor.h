@@ -21,11 +21,12 @@ class Variable;     // Forward declaration
 enum class RobustKernel { None, Huber, DCS };
 
 /*****************************************************************************************/
-// A GBP factor connecting one or more variables on a Lie group LG (R^n by default).
+// A GBP factor connecting one or more variables. Each variable has its own Lie group (R^n by default),
+// and they need not match - a factor can connect, say, an SE2 pose and an R2 landmark.
 // Subclasses implement computeResidualAndJacobian(X): the residual r(X) = h(X) (-) z and Jacobian dr/dX at X.
 // updateFactor() linearises at X, conditions on the other variables' beliefs (in the tangent space
-// at X), marginalises, and retracts the outgoing message onto the group. For Euclidean LG the tangent
-// transforms drop out and the retraction is addition.
+// at X), marginalises, and retracts the outgoing message onto each variable's group. For Euclidean
+// groups the tangent transforms drop out and the retraction is addition.
 /*****************************************************************************************/
 class Factor {
     public:
@@ -35,9 +36,8 @@ class Factor {
     Key key_;                                   // Factor key = {rid_, fid_}
     std::vector<Key> connected_v_keys_{};
     int other_rid_;                             // id of the other connected robot, for inter-robot factors
-    int n_dofs_;                                // dofs of each connected variable
     int n_dofs_meas_;                           // dofs of the observation z
-    LieGroup LG;                                // group the connected variables live in (R^n by default)
+    std::map<Key, LieGroup> variable_groups_;   // the Lie group of each connected variable, by key
     Eigen::VectorXd z_;                         // Measurement
     std::vector<LieGroup> linpoints_;           // current lin point, one group element per connected variable
                                                 // (set in updateFactor; used by conditioning/retraction/skipFactor)
@@ -49,11 +49,19 @@ class Factor {
         return false;
     };
 
-    // Factor connecting variables that live in group `group`, named as in a config / makeLieGroup:
-    // "SO2"/"SE2"/"SO3"/"SE3", or "R<n>" for the Euclidean group R^n (e.g. "R2"). Measurement precision
-    // is diag(sigma_prior_list)^-2 (use a constant list for isotropic noise); z is the observation.
-    Factor(Key fac_key, std::vector<Key> connected_variables, const std::string& group,
+    // One group name per connected variable, in the same order as connected_variables. Names are as in
+    // makeLieGroup: "SO2"/"SE2"/"SO3"/"SE3", or "R<n>" for R^n. They may differ, e.g. {"SE2","R2"}; a
+    // single name is reused for every variable. Measurement precision is diag(sigma_prior_list)^-2.
+    Factor(Key fac_key, std::vector<Key> connected_variables, const std::vector<std::string>& groups,
             const Eigen::VectorXd& observation, Eigen::VectorXd sigma_prior_list);
+    // Same group for every connected variable.
+    Factor(Key fac_key, std::vector<Key> connected_variables, const std::string& group,
+            const Eigen::VectorXd& observation, Eigen::VectorXd sigma_prior_list)
+        : Factor(fac_key, std::move(connected_variables), std::vector<std::string>{group},
+                 observation, std::move(sigma_prior_list)) {}
+
+    // The group of the connected variable with this key.
+    LieGroup groupForKey(const Key& k) const { return variable_groups_.at(k); }
 
     virtual ~Factor();
 

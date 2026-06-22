@@ -187,6 +187,37 @@ public:
     // Relative element this^-1 * rhs (the transform taking this to rhs). For R^n this is rhs - this.
     LieGroup between(const LieGroup& rhs) const { return inverse() * rhs; }
 
+    // Group inverse, also returning J_self = d(out)/d(this) (for chaining Jacobians, manif style).
+    LieGroup inverse(Eigen::MatrixXd& J_self) const {
+        return std::visit([&](auto const& x) -> LieGroup {
+            using T = std::decay_t<decltype(x)>;
+            if constexpr (std::is_same_v<T, std::monostate>) { assert(false && "inverse on UNSET LieGroup"); return LieGroup(); }
+            else if constexpr (std::is_same_v<T, Eigen::VectorXd>) {
+                J_self = -Eigen::MatrixXd::Identity(x.size(), x.size());
+                return LieGroup(Eigen::VectorXd(-x));
+            } else {
+                Eigen::Matrix<double, T::DoF, T::DoF> J;
+                auto y = x.inverse(J); J_self = J;
+                return LieGroup(T(y));
+            }
+        }, g_);
+    }
+    // this^-1 * rhs, also returning J_self = d(out)/d(this) and J_rhs = d(out)/d(rhs).
+    LieGroup between(const LieGroup& rhs, Eigen::MatrixXd& J_self, Eigen::MatrixXd& J_rhs) const {
+        return std::visit([&](auto const& x) -> LieGroup {
+            using T = std::decay_t<decltype(x)>;
+            if constexpr (std::is_same_v<T, std::monostate>) { assert(false && "between on UNSET LieGroup"); return LieGroup(); }
+            else if constexpr (std::is_same_v<T, Eigen::VectorXd>) {
+                int n = (int)x.size(); J_self = -Eigen::MatrixXd::Identity(n, n); J_rhs = Eigen::MatrixXd::Identity(n, n);
+                return LieGroup(Eigen::VectorXd(std::get<T>(rhs.g_) - x));
+            } else {
+                Eigen::Matrix<double, T::DoF, T::DoF> Js, Jr;
+                auto y = x.between(std::get<T>(rhs.g_), Js, Jr); J_self = Js; J_rhs = Jr;
+                return LieGroup(T(y));
+            }
+        }, g_);
+    }
+
     // Adjoint matrix Ad (dof x dof); identity for the abelian R^n.
     Eigen::MatrixXd Ad() const {
         return std::visit([&](auto const& x) -> Eigen::MatrixXd {
@@ -245,6 +276,28 @@ public:
                 auto y = x.rplus(typename T::Tangent(tau), js, jt);
                 J_self = js; J_tau = jt;
                 return LieGroup(T(y));
+            }
+        }, g_);
+    }
+
+    // Act on a point: rigid transform for SE2/SE3, rotation for SO2/SO3, translation for R^n. Also
+    // returns the analytic Jacobians J_self = d(out)/d(this) and J_point = d(out)/d(p). The point has the
+    // group's space dimension (2 for SE2/SO2, 3 for SE3/SO3, n for R^n).
+    Eigen::VectorXd act(const Eigen::VectorXd& p, Eigen::MatrixXd& J_self, Eigen::MatrixXd& J_point) const {
+        return std::visit([&](auto const& x) -> Eigen::VectorXd {
+            using T = std::decay_t<decltype(x)>;
+            if constexpr (std::is_same_v<T, std::monostate>) { assert(false && "act on UNSET LieGroup"); return Eigen::VectorXd(); }
+            else if constexpr (std::is_same_v<T, Eigen::VectorXd>) {
+                int n = (int)x.size(); J_self = Eigen::MatrixXd::Identity(n, n); J_point = Eigen::MatrixXd::Identity(n, n);
+                return Eigen::VectorXd(x + p);
+            } else {
+                constexpr int Dm = T::Dim, Df = T::DoF;
+                typename T::Vector pt = p.head(Dm);
+                Eigen::Matrix<double, Dm, Df> Jm;
+                Eigen::Matrix<double, Dm, Dm> Jv;
+                typename T::Vector y = x.act(pt, Jm, Jv);
+                J_self = Jm; J_point = Jv;
+                return Eigen::VectorXd(y);
             }
         }, g_);
     }

@@ -58,7 +58,7 @@ void ExampleLayer::createInterrobotFactors(FactorGraph& owner, int other_robot_i
     // addFactor builds the factor, assigns its Key, and registers it with the LOCAL variable (this_var_key);
     // the other variable lives on another robot, so its half of the message goes in the robot inbox.
     auto fac = robot->addFactor<ExampleFactor>(layer, {this_var_key, other_var_key}, MY_SIGMA);
-    robot->inbox_[std::make_pair(fac->key_, other_var_key)] = Message(fac->LG);
+    robot->inbox_[std::make_pair(fac->key_, other_var_key)] = Message(fac->groupForKey(other_var_key));
 }
 
 /*-----------------------------------------------------------------------------------------------------*/

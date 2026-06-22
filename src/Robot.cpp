@@ -162,7 +162,7 @@ Eigen::VectorXd Robot::getHorizonVelocityTowards(const Eigen::VectorXd& curr_pos
     Eigen::VectorXd horizon2goal = goal({0,1}) - curr_pos({0,1}); // Vector from horizon to goal
 
     // Angular velocity, capped by the turning radius.
-    double angular_speed_desired = angleOp(atan2(horizon2goal(1), horizon2goal(0)) - curr_pos(2));
+    double angular_speed_desired = wrapAngle(atan2(horizon2goal(1), horizon2goal(0)) - curr_pos(2));
     double angular_speed_max = max_lin_speed/min_turning_radius_;
     double new_angular_speed = (angular_speed_desired<0) ? -1.*std::min(angular_speed_max, -angular_speed_desired) : std::min(angular_speed_max, angular_speed_desired);
     // Set linear velocity

@@ -122,9 +122,9 @@ private:
         for (auto vk : fac->connected_v_keys_){
             if (vk.graph_id_ != f_key.graph_id_){
                 if (p_inbox_->count(std::make_pair(f_key, vk))) fac->inbox_[vk] = p_inbox_->at(std::make_pair(f_key, vk));
-                // No external message yet (e.g. factor just created): use a zero-information message so it
-                // contributes nothing until the real one arrives.
-                else fac->inbox_[vk] = Message(fac->LG);
+                // No external message yet (e.g. factor just created): a zero-information message in the
+                // variable's group, so it contributes nothing until the real one arrives.
+                else fac->inbox_[vk] = Message(fac->groupForKey(vk));
             } else {
                 fac->inbox_[vk] = variables_.at(vk)->outbox_.at(f_key);
             }
