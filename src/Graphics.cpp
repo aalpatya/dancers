@@ -328,7 +328,9 @@ void Simulator::requestRestart(){
 #ifdef __EMSCRIPTEN__
     // Build the reload URL in C++ and let JS percent-encode the parts (config paths / overrides contain
     // '/', ';', '=' but no quotes, so single-quoted JS string literals are safe here).
-    std::string js = "var u='index.html?config='+encodeURIComponent('" + globals.pending_config_ + "');";
+    // Reload the current document (location.pathname) rather than a hardcoded filename, so this works
+    // regardless of what the app page is named (it's dancers.html when embedded by the demos hub).
+    std::string js = "var u=location.pathname+'?config='+encodeURIComponent('" + globals.pending_config_ + "');";
     if (!globals.pending_overrides_.empty())
         js += "u+='&set='+encodeURIComponent('" + globals.pending_overrides_ + "');";
     js += "window.location.href=u;";

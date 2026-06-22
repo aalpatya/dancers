@@ -79,29 +79,29 @@
   </div>
 
   <script>
-    // Two categories of demos. Multirobot ones load the DANCeRS app (index.html) with a starting config;
+    // Two categories of demos. Multirobot ones load the DANCeRS app (dancers.html) with a starting config;
     // GBP ones load their own page. Add a demo by extending these lists.
     var CATEGORIES = [
       { label: 'DANCeRS (Multirobot) Demos', items: [
-        { label: 'Shape Formation',                    url: 'index.html?config=config/shape_formation.yaml',
+        { label: 'Shape Formation',                    url: 'dancers.html?config=config/shape_formation.yaml',
           desc: 'Robots negotiate a distributed shape formation with GBP.' },
-        { label: 'Joint Consensus + Shape Formation',  url: 'index.html?config=config/joint_consensus_shape_formation.yaml',
+        { label: 'Joint Consensus + Shape Formation',  url: 'dancers.html?config=config/joint_consensus_shape_formation.yaml',
           desc: 'Robots agree on a shape, then form it together.' },
-        { label: 'Path Planning — Junction',           url: 'index.html?config=config/pathplanning/junction.yaml',
+        { label: 'Path Planning — Junction',           url: 'dancers.html?config=config/pathplanning/junction.yaml',
           desc: 'Robots cross a junction while avoiding collisions.' },
-        { label: 'Path Planning — Junction (Two-way)', url: 'index.html?config=config/pathplanning/junction_twoway.yaml',
+        { label: 'Path Planning — Junction (Two-way)', url: 'dancers.html?config=config/pathplanning/junction_twoway.yaml',
           desc: 'Two-way traffic through a junction with collision avoidance.' },
-        { label: 'Path Planning — Circle',             url: 'index.html?config=config/pathplanning/circle.yaml',
+        { label: 'Path Planning — Circle',             url: 'dancers.html?config=config/pathplanning/circle.yaml',
           desc: 'Robots swap to antipodal points across a circle, avoiding each other.' },
-        { label: 'Path Planning — Circle (Cluttered)', url: 'index.html?config=config/pathplanning/circle_cluttered.yaml',
+        { label: 'Path Planning — Circle (Cluttered)', url: 'dancers.html?config=config/pathplanning/circle_cluttered.yaml',
           desc: 'The circle swap, now through a cluttered obstacle field.' },
-        { label: 'Consensus — Continuous (SE2)',       url: 'index.html?config=config/consensus/continuous_SE2.yaml',
+        { label: 'Consensus — Continuous (SE2)',       url: 'dancers.html?config=config/consensus/continuous_SE2.yaml',
           desc: 'Robots reach consensus over a continuous SE(2) decision space.' },
-        { label: 'Consensus — Continuous (SO2)',       url: 'index.html?config=config/consensus/continuous_SO2.yaml',
+        { label: 'Consensus — Continuous (SO2)',       url: 'dancers.html?config=config/consensus/continuous_SO2.yaml',
           desc: 'Robots reach consensus over a continuous SO(2) decision space.' },
-        { label: 'Consensus — Best-of-N',              url: 'index.html?config=config/consensus/bestOfN.yaml',
+        { label: 'Consensus — Best-of-N',              url: 'dancers.html?config=config/consensus/bestOfN.yaml',
           desc: 'Swarm consensus over N discrete options (best-of-N).' },
-        { label: 'Consensus — Best-of-N (Seeded)',     url: 'index.html?config=config/consensus/bestOfN_seedrobots.yaml',
+        { label: 'Consensus — Best-of-N (Seeded)',     url: 'dancers.html?config=config/consensus/bestOfN_seedrobots.yaml',
           desc: 'Best-of-N with seeded robots biasing the decision.' },
       ]},
       { label: 'GBP Demos', items: [

@@ -126,9 +126,10 @@ if(EMSCRIPTEN)
     # The preloaded config files are baked into dancers.data at link time, so editing one must trigger a
     # relink. List them (and the shell) as LINK_DEPENDS; CONFIGURE_DEPENDS re-globs them each build.
     file(GLOB_RECURSE DANCERS_CONFIGS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/config/*.yaml)
-    # OUTPUT_NAME index + SUFFIX .html -> emit index.html/.js/.wasm/.data (so GitHub Pages serves it at
-    # the folder URL). LINK_DEPENDS -> relink when the shell or any config changes.
-    set_target_properties(dancers PROPERTIES OUTPUT_NAME "index" SUFFIX ".html"
+    # OUTPUT_NAME dancers + SUFFIX .html -> emit dancers.html/.js/.wasm/.data. The front page (index.html,
+    # copied below) is the folder-URL landing; the multirobot demos load dancers.html in an iframe.
+    # LINK_DEPENDS -> relink when the shell or any config changes.
+    set_target_properties(dancers PROPERTIES OUTPUT_NAME "dancers" SUFFIX ".html"
         LINK_DEPENDS "${CMAKE_SOURCE_DIR}/assets/web/embed_shell.html;${DANCERS_CONFIGS}")
     target_link_options(dancers PRIVATE
         -sUSE_GLFW=3
@@ -146,7 +147,7 @@ if(EMSCRIPTEN)
 
     # The visual gbp examples, each built as its own web page (gbp-1d-line-fitting.html,
     # gbp-se2-localisation.html). They need no preloaded assets (raylib's embedded default font only).
-    # assets/web/demos.html is the front page that embeds the selected demo (multirobot or gbp) in an iframe.
+    # assets/web/index.html is the front page that embeds the selected demo (multirobot or gbp) in an iframe.
     foreach(demo gbp-1d-line-fitting gbp-se2-localisation)
         add_executable(${demo} src/examples/${demo}.cpp)
         target_link_libraries(${demo} PUBLIC gbp Eigen3::Eigen)
@@ -160,8 +161,8 @@ if(EMSCRIPTEN)
             "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/assets/web/gbp_demo_shell.html"
         )
     endforeach()
-    # Put the demos front page alongside the build outputs in build_web/.
-    configure_file(${CMAKE_SOURCE_DIR}/assets/web/demos.html ${CMAKE_BINARY_DIR}/demos.html COPYONLY)
+    # Put the front page alongside the build outputs in build_web/ as index.html (the folder-URL landing).
+    configure_file(${CMAKE_SOURCE_DIR}/assets/web/index.html ${CMAKE_BINARY_DIR}/index.html COPYONLY)
 endif()
 
 #################################################################
