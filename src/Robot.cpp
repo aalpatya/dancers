@@ -138,7 +138,9 @@ void Robot::draw(Simulator* sim, Globals& globals){
     // so it renders regardless of which layers are active.
     if (globals.DRAW_INTERROBOT && interrobot_comms_active_){
         for (auto rid : connected_r_ids_){
-            const auto& other = sim->robots_.at(rid);
+            auto oit = sim->robots_.find(rid);
+            if (oit == sim->robots_.end()) continue;   // neighbour already removed from the sim
+            const auto& other = oit->second;
             if (!other->interrobot_comms_active_) continue;
             DrawLine3D(Vector3{(float)position_(0), height_3D_ + robot_radius_, (float)position_(1)},
                        Vector3{(float)(other->position_(0)), other->height_3D_ + other->robot_radius_, (float)(other->position_(1))},

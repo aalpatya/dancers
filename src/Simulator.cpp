@@ -381,6 +381,17 @@ void Simulator::createOrDeleteRobots(){
 // Deletes the robot from the simulator's robots_, as well as any variable/factors associated.
 /*******************************************************************************/
 void Simulator::deleteRobot(std::shared_ptr<Robot> robot){
+    // Disconnect it from its neighbours now rather than waiting for their next updateInterrobotFactors():
+    // that only runs in timestep(), which is skipped while paused, but draw() still walks connected_r_ids_.
+    const int rid = robot->rid_;
+    for (auto& [other_rid, other] : robots_){
+        auto it = std::find(other->connected_r_ids_.begin(), other->connected_r_ids_.end(), rid);
+        if (it == other->connected_r_ids_.end()) continue;
+        other->deleteInterrobotFactors(rid);
+        other->connected_r_ids_.erase(it);
+        other->neighbours_.erase(std::remove(other->neighbours_.begin(), other->neighbours_.end(), rid), other->neighbours_.end());
+        other->neighbour_pos_.erase(rid);
+    }
     robots_.erase(robot->rid_);
     robot_positions_.erase(robot->rid_);
 }
